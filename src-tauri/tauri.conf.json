@@ -1,0 +1,81 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Prompter",
+  "version": "0.1.0",
+  "identifier": "io.github.gagagazan.prompter",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "manager",
+        "title": "Prompter",
+        "url": "index.html?surface=manager",
+        "width": 1120,
+        "height": 720,
+        "minWidth": 860,
+        "minHeight": 560,
+        "center": true,
+        "visible": false,
+        "resizable": true,
+        "decorations": true
+      },
+      {
+        "label": "launcher",
+        "title": "Prompter Launcher",
+        "url": "index.html?surface=launcher",
+        "width": 680,
+        "height": 440,
+        "visible": false,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "decorations": true
+      },
+      {
+        "label": "settings",
+        "title": "Prompter Settings",
+        "url": "index.html?surface=settings",
+        "width": 760,
+        "height": 520,
+        "minWidth": 680,
+        "minHeight": 480,
+        "center": true,
+        "visible": false,
+        "resizable": true,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "DeveloperTool",
+    "shortDescription": "A local-first prompt library.",
+    "longDescription": "Prompter keeps reusable prompts as plain UTF-8 .prompt files in a folder you control.",
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}
