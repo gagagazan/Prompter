@@ -66,4 +66,8 @@ docs/                  架构约束与人工 smoke 清单
 promptly/              保留的空参考目录，不属于本项目源码
 ```
 
-推送形如 `v0.0.2` 的版本标签会自动构建 macOS 与 Windows Release 安装包，并上传到对应的 GitHub Release。目前安装包未进行平台代码签名，仓库也尚未添加开源许可证。
+推送形如 `v0.0.2` 的版本标签会自动构建 macOS 与 Windows Release 安装包，并上传到对应的 GitHub Release。目前安装包未进行平台代码签名。
+
+## 许可证
+
+本项目采用 [MIT License](LICENSE)。
