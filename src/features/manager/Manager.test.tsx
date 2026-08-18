@@ -662,6 +662,28 @@ describe("Manager", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("does not retry a library root after macOS denies folder access", async () => {
+    const bridge = makeBridge();
+    bridge.librarySnapshot = vi.fn().mockResolvedValue({
+      ...snapshot,
+      root: {
+        id: "unavailable-session",
+        displayPath: "/Users/Azan/Documents/Prompts",
+        status: "unreadable",
+        errorCode: "permission_denied",
+      },
+      folders: [],
+      prompts: [],
+    });
+
+    renderManager(bridge);
+
+    expect(
+      await screen.findByText("The prompt library is unavailable"),
+    ).toBeVisible();
+    expect(bridge.librarySnapshot).toHaveBeenCalledOnce();
+  });
+
   it("reloads a clean document when its opaque content version changes", async () => {
     const { bridge, emitUpdate } = makeUpdateBridge();
     renderManager(bridge);

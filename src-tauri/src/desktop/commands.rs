@@ -43,7 +43,14 @@ pub fn library_snapshot<R: Runtime>(
     if let Ok(session) = state.session() {
         return snapshot_view(&session);
     }
-    if validate_library_root(&root).is_err() {
+    if state
+        .library_error()
+        .is_some_and(|error| error.code == "PermissionDenied")
+    {
+        return Ok(super::projection::unavailable_snapshot(&state));
+    }
+    if let Err(error) = validate_library_root(&root) {
+        state.set_library_error(CommandError::from(error));
         return Ok(super::projection::unavailable_snapshot(&state));
     }
     let session = match PromptLibrarySession::open(&root) {
@@ -472,7 +479,7 @@ fn canonical_directory(path: PathBuf) -> Result<PathBuf, CommandError> {
     path.canonicalize().map_err(CommandError::from)
 }
 
-fn sync_autostart<R: Runtime>(
+pub(crate) fn sync_autostart<R: Runtime>(
     app: &tauri::AppHandle<R>,
     desired: bool,
 ) -> Result<bool, CommandError> {
@@ -480,10 +487,14 @@ fn sync_autostart<R: Runtime>(
         .autolaunch()
         .is_enabled()
         .map_err(|error| CommandError::new("autostartStatusFailed", error.to_string()))?;
-    if previous != desired {
+    if autostart_needs_update(previous, desired) {
         set_autostart(app, desired)?;
     }
     Ok(previous)
+}
+
+fn autostart_needs_update(current: bool, desired: bool) -> bool {
+    current != desired
 }
 
 pub(crate) fn set_autostart<R: Runtime>(
@@ -551,5 +562,13 @@ mod tests {
             mutation_error_code(LibraryErrorCode::CrossDeviceMove),
             "CrossDeviceMove"
         );
+    }
+
+    #[test]
+    fn autostart_is_not_rewritten_when_it_already_matches_settings() {
+        assert!(!autostart_needs_update(true, true));
+        assert!(!autostart_needs_update(false, false));
+        assert!(autostart_needs_update(false, true));
+        assert!(autostart_needs_update(true, false));
     }
 }

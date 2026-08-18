@@ -3,11 +3,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{Manager, Runtime, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
-use crate::library::PromptLibrarySession;
-
 use super::{
-    commands::set_autostart,
-    error::CommandError,
+    commands::sync_autostart,
     settings::SettingsStore,
     state::{DesktopState, spawn_audit, spawn_periodic_audit},
     tray::install_tray,
@@ -25,12 +22,6 @@ pub fn setup<R: Runtime>(app: &mut tauri::App<R>) -> Result<(), Box<dyn std::err
     app.manage(DesktopState::new(settings_store));
 
     let state = app.state::<DesktopState>();
-    if let Some(root) = settings.root.as_ref() {
-        match PromptLibrarySession::open(root) {
-            Ok(session) => state.mount_library(app.handle(), session),
-            Err(error) => state.set_library_error(CommandError::from(error)),
-        }
-    }
 
     if let Err(error) = state.rebind_shortcut(app.handle(), &settings.shortcut) {
         // A conflicting accelerator must not prevent access to the manager.
@@ -39,7 +30,7 @@ pub fn setup<R: Runtime>(app: &mut tauri::App<R>) -> Result<(), Box<dyn std::err
         eprintln!("global shortcut is unavailable: {error}");
     }
 
-    if let Err(error) = set_autostart(app.handle(), settings.launch_at_login) {
+    if let Err(error) = sync_autostart(app.handle(), settings.launch_at_login) {
         eprintln!("could not synchronize launch-at-login: {error}");
     }
 

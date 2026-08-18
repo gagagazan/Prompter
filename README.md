@@ -2,7 +2,7 @@
 
 Prompter 是一个 local-first、跨平台的常用 Prompt 启动器与纯文本管理器。你的文件夹就是资料库，目录就是分类，文件名就是标题；正文始终保存在普通的 UTF-8 `.prompt` 文件中，可以直接用 Git 或任意文件同步工具管理。
 
-> 当前版本：`0.0.1`。支持 macOS 13+（Apple Silicon / Intel）与 Windows 10 22H2+ / Windows 11（x64）。
+> 当前版本：`0.0.2`。支持 macOS 13+（Apple Silicon / Intel）与 Windows 10 22H2+ / Windows 11（x64）。
 
 ## 下载与安装
 
@@ -66,4 +66,4 @@ docs/                  架构约束与人工 smoke 清单
 promptly/              保留的空参考目录，不属于本项目源码
 ```
 
-推送形如 `v0.0.1` 的版本标签会自动构建 macOS 与 Windows Release 安装包，并上传到对应的 GitHub Release。目前安装包未进行平台代码签名，仓库也尚未添加开源许可证。
+推送形如 `v0.0.2` 的版本标签会自动构建 macOS 与 Windows Release 安装包，并上传到对应的 GitHub Release。目前安装包未进行平台代码签名，仓库也尚未添加开源许可证。

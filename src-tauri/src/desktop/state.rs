@@ -186,10 +186,12 @@ impl DesktopState {
         let Some(root) = self.settings.get().root else {
             return;
         };
-        let should_reopen = self.library_error().is_some()
-            || self
-                .current_session()
-                .is_none_or(|session| session.root() != root);
+        let library_error = self.library_error();
+        let session_needs_reopen = self
+            .current_session()
+            .is_none_or(|session| session.root() != root);
+        let should_reopen =
+            should_automatically_reopen(library_error.as_ref(), session_needs_reopen);
 
         if should_reopen {
             match PromptLibrarySession::open(&root) {
@@ -285,6 +287,13 @@ impl DesktopState {
     }
 }
 
+fn should_automatically_reopen(error: Option<&CommandError>, session_needs_reopen: bool) -> bool {
+    if error.is_some_and(|error| error.code == "PermissionDenied") {
+        return false;
+    }
+    error.is_some() || session_needs_reopen
+}
+
 struct RefreshGuard<'a>(&'a AtomicBool);
 
 impl Drop for RefreshGuard<'_> {
@@ -374,4 +383,24 @@ fn validate_live_root(root: &Path) -> Result<(), CommandError> {
         }))
     })?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn permission_denial_is_not_retried_by_runtime_audits() {
+        let error = CommandError::new("PermissionDenied", "access denied");
+
+        assert!(!should_automatically_reopen(Some(&error), true));
+    }
+
+    #[test]
+    fn transiently_unavailable_roots_are_still_retried() {
+        let error = CommandError::new("RootUnavailable", "temporarily unavailable");
+
+        assert!(should_automatically_reopen(Some(&error), true));
+        assert!(should_automatically_reopen(None, true));
+    }
 }

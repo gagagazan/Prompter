@@ -13,6 +13,7 @@ use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs;
+use std::io;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Weak, mpsc};
 use unicode_casefold::UnicodeCaseFold;
@@ -94,9 +95,12 @@ type WatchStarter = fn(&Path, WatchEventHandler) -> Result<WatchSubscription, Wa
 
 pub(crate) fn validate_library_root_candidate(requested_root: &Path) -> LibraryResult<()> {
     let metadata = fs::symlink_metadata(requested_root).map_err(|error| {
-        LibraryError::invalid_root(requested_root, "root cannot be accessed")
-            .detail("operation", "metadataRoot")
-            .detail("reason", error.to_string())
+        root_access_error(
+            requested_root,
+            "metadataRoot",
+            "root cannot be accessed",
+            &error,
+        )
     })?;
     if is_link_like(&metadata) {
         return Err(LibraryError::invalid_root(
@@ -111,11 +115,29 @@ pub(crate) fn validate_library_root_candidate(requested_root: &Path) -> LibraryR
         ));
     }
     fs::read_dir(requested_root).map_err(|error| {
-        LibraryError::invalid_root(requested_root, "root cannot be enumerated")
-            .detail("operation", "readRoot")
-            .detail("reason", error.to_string())
+        root_access_error(
+            requested_root,
+            "readRoot",
+            "root cannot be enumerated",
+            &error,
+        )
     })?;
     Ok(())
+}
+
+fn root_access_error(
+    path: &Path,
+    operation: &'static str,
+    unavailable_reason: &'static str,
+    error: &io::Error,
+) -> LibraryError {
+    if error.kind() == io::ErrorKind::PermissionDenied {
+        LibraryError::io(operation, path, error)
+    } else {
+        LibraryError::invalid_root(path, unavailable_reason)
+            .detail("operation", operation)
+            .detail("reason", error.to_string())
+    }
 }
 
 /// One open, watched view of a prompt-library directory.
@@ -1511,4 +1533,33 @@ fn relative_string(path: &Path) -> String {
         })
         .collect::<Vec<_>>()
         .join("/")
+}
+
+#[cfg(test)]
+mod root_access_tests {
+    use super::*;
+
+    #[test]
+    fn permission_denial_is_preserved_for_desktop_retry_policy() {
+        let error = root_access_error(
+            Path::new("/protected/library"),
+            "readRoot",
+            "root cannot be enumerated",
+            &io::Error::from(io::ErrorKind::PermissionDenied),
+        );
+
+        assert_eq!(error.code, LibraryErrorCode::PermissionDenied);
+    }
+
+    #[test]
+    fn an_unavailable_root_keeps_the_root_error_code() {
+        let error = root_access_error(
+            Path::new("/missing/library"),
+            "metadataRoot",
+            "root cannot be accessed",
+            &io::Error::from(io::ErrorKind::NotFound),
+        );
+
+        assert_eq!(error.code, LibraryErrorCode::RootUnavailable);
+    }
 }

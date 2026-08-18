@@ -48,7 +48,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Prompter v__VERSION__
           releaseBody: |
-            Prompter v__VERSION__ 的首个公开版本。
+            Prompter v__VERSION__ 发布包。
 
             安装包目前尚未进行平台代码签名。macOS 用户如遇 Gatekeeper 拦截，请参照 README 中的安装说明。
           releaseDraft: false

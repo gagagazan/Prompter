@@ -102,7 +102,8 @@ async function initialLibrarySnapshot(bridge: DesktopBridge) {
       const configuredRootTemporarilyUnavailable =
         snapshot.root.status !== "ready" &&
         snapshot.root.status !== "unconfigured" &&
-        snapshot.root.displayPath.trim().length > 0;
+        snapshot.root.displayPath.trim().length > 0 &&
+        snapshot.root.errorCode === "unknown";
       if (
         !configuredRootTemporarilyUnavailable ||
         attempt === STARTUP_SNAPSHOT_RETRY_DELAYS_MS.length
