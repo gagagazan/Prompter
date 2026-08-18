@@ -24,15 +24,16 @@ pub struct LibraryRootView {
     pub error_code: Option<RootErrorCode>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum RootStatus {
     Ready,
+    Unconfigured,
     Missing,
     Unreadable,
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RootErrorCode {
     NotFound,
@@ -357,30 +358,36 @@ fn unavailable_root(settings: &AppSettings, error: &CommandError) -> LibraryRoot
         },
         display_path,
         status,
-        error_code: Some(error_code),
+        error_code,
     }
 }
 
 fn classify_unavailable_root(
     settings: &AppSettings,
     error: &CommandError,
-) -> (RootStatus, RootErrorCode) {
+) -> (RootStatus, Option<RootErrorCode>) {
     let Some(root) = settings.root.as_deref() else {
-        return (RootStatus::Missing, RootErrorCode::NotFound);
+        return (RootStatus::Unconfigured, None);
     };
     match std::fs::symlink_metadata(root) {
         Err(io) if io.kind() == std::io::ErrorKind::NotFound => {
-            return (RootStatus::Missing, RootErrorCode::NotFound);
+            return (RootStatus::Missing, Some(RootErrorCode::NotFound));
         }
         Err(io) if io.kind() == std::io::ErrorKind::PermissionDenied => {
-            return (RootStatus::Unreadable, RootErrorCode::PermissionDenied);
+            return (
+                RootStatus::Unreadable,
+                Some(RootErrorCode::PermissionDenied),
+            );
         }
         _ => {}
     }
     if error.code.to_ascii_lowercase().contains("permission") {
-        (RootStatus::Unreadable, RootErrorCode::PermissionDenied)
+        (
+            RootStatus::Unreadable,
+            Some(RootErrorCode::PermissionDenied),
+        )
     } else {
-        (RootStatus::Unreadable, RootErrorCode::Unknown)
+        (RootStatus::Unreadable, Some(RootErrorCode::Unknown))
     }
 }
 
@@ -537,5 +544,22 @@ mod tests {
         let settings = public_settings(&state);
 
         assert_eq!(settings.shortcut_status, ShortcutStatus::Unavailable);
+    }
+
+    #[test]
+    fn unconfigured_library_projects_as_first_run_instead_of_missing() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = super::super::settings::SettingsStore::load_from(
+            directory.path().join("settings.json"),
+        )
+        .unwrap();
+        let state = DesktopState::new(store);
+
+        let snapshot = unavailable_snapshot(&state);
+
+        assert_eq!(snapshot.root.status, RootStatus::Unconfigured);
+        assert_eq!(snapshot.root.id, "unconfigured-session");
+        assert_eq!(snapshot.root.display_path, "");
+        assert_eq!(snapshot.root.error_code, None);
     }
 }

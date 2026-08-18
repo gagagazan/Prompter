@@ -73,6 +73,51 @@ const sortNewestFirst = (left: PromptSummary, right: PromptSummary) =>
   new Date(right.modifiedAt).getTime() - new Date(left.modifiedAt).getTime();
 
 const SEARCH_DEBOUNCE_MS = 120;
+const STARTUP_SNAPSHOT_RETRY_DELAYS_MS = [120, 320] as const;
+
+const isRootNotConfiguredError = (error: unknown) =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  error.code === "rootNotConfigured";
+
+async function initialLibrarySnapshot(bridge: DesktopBridge) {
+  let lastError: unknown;
+  let lastSnapshot: LibrarySnapshot | undefined;
+  for (
+    let attempt = 0;
+    attempt <= STARTUP_SNAPSHOT_RETRY_DELAYS_MS.length;
+    attempt += 1
+  ) {
+    if (attempt > 0) {
+      await new Promise<void>((resolve) => {
+        window.setTimeout(
+          resolve,
+          STARTUP_SNAPSHOT_RETRY_DELAYS_MS[attempt - 1],
+        );
+      });
+    }
+    try {
+      const snapshot = await bridge.librarySnapshot();
+      const configuredRootTemporarilyUnavailable =
+        snapshot.root.status !== "ready" &&
+        snapshot.root.status !== "unconfigured" &&
+        snapshot.root.displayPath.trim().length > 0;
+      if (
+        !configuredRootTemporarilyUnavailable ||
+        attempt === STARTUP_SNAPSHOT_RETRY_DELAYS_MS.length
+      ) {
+        return snapshot;
+      }
+      lastSnapshot = snapshot;
+    } catch (error) {
+      if (isRootNotConfiguredError(error)) throw error;
+      lastError = error;
+    }
+  }
+  if (lastSnapshot) return lastSnapshot;
+  throw lastError;
+}
 
 const stableLibraryErrorCodes = new Set<StableLibraryErrorCode>([
   "RootUnavailable",
@@ -360,7 +405,7 @@ export function Manager({ bridge }: ManagerProps) {
     try {
       const snapshot = await bridge.librarySnapshot();
       setLoadError(false);
-      setRootNotConfigured(false);
+      setRootNotConfigured(snapshot.root.status === "unconfigured");
       await reconcileSnapshot(snapshot, requestId);
     } catch {
       if (requestId === refreshRequestRef.current) setLoadError(true);
@@ -399,7 +444,9 @@ export function Manager({ bridge }: ManagerProps) {
     setLoadError(false);
     setRootNotConfigured(false);
     try {
-      const snapshot = await bridge.librarySnapshot();
+      const snapshot = await initialLibrarySnapshot(bridge);
+      const unconfigured = snapshot.root.status === "unconfigured";
+      setRootNotConfigured(unconfigured);
       setFolderSelection((selection) =>
         selection === "all" ||
         selection === "recent" ||
@@ -418,12 +465,7 @@ export function Manager({ bridge }: ManagerProps) {
       setContent(document?.content ?? "");
       setSaveState("saved");
     } catch (error) {
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        error.code === "rootNotConfigured"
-      ) {
+      if (isRootNotConfiguredError(error)) {
         setRootNotConfigured(true);
       } else {
         setLoadError(true);
@@ -1061,16 +1103,42 @@ export function Manager({ bridge }: ManagerProps) {
     );
   }
 
-  if (loadError || rootNotConfigured) {
+  if (rootNotConfigured) {
+    return (
+      <main className="manager-shell manager-centered-state">
+        <FolderOpen aria-hidden="true" />
+        <h1>{t("manager.firstRun.title")}</h1>
+        <p>{t("manager.firstRun.body")}</p>
+        <button
+          type="button"
+          className="primary-button"
+          onClick={() => void chooseRoot()}
+        >
+          {t("manager.rootError.choose")}
+        </button>
+        {rootChangeBlocked ? (
+          <p className="inline-error">{t("manager.dirtyRootBlocked")}</p>
+        ) : null}
+      </main>
+    );
+  }
+
+  if (loadError) {
     return (
       <main className="manager-shell manager-centered-state">
         <TriangleAlert aria-hidden="true" />
         <h1>{t("manager.rootError.title")}</h1>
         <p>{t("manager.rootError.body")}</p>
-        <button type="button" className="primary-button" onClick={() => void (rootNotConfigured ? chooseRoot() : loadLibrary())}>
-          {rootNotConfigured ? t("manager.rootError.choose") : t("common.retry")}
+        <button
+          type="button"
+          className="primary-button"
+          onClick={() => void loadLibrary()}
+        >
+          {t("common.retry")}
         </button>
-        {rootChangeBlocked ? <p className="inline-error">{t("manager.dirtyRootBlocked")}</p> : null}
+        {rootChangeBlocked ? (
+          <p className="inline-error">{t("manager.dirtyRootBlocked")}</p>
+        ) : null}
       </main>
     );
   }

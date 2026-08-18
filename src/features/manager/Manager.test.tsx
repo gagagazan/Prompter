@@ -592,6 +592,76 @@ describe("Manager", () => {
     await waitFor(() => expect(bridge.chooseLibraryRoot).toHaveBeenCalledOnce());
   });
 
+  it("shows first-run guidance instead of an unavailable-library error", async () => {
+    const bridge = makeBridge();
+    bridge.librarySnapshot = vi.fn().mockResolvedValue({
+      ...snapshot,
+      root: {
+        id: "unconfigured-session",
+        displayPath: "",
+        status: "unconfigured",
+      },
+      folders: [],
+      prompts: [],
+    });
+
+    renderManager(bridge);
+
+    expect(await screen.findByText("Choose your Prompt library")).toBeVisible();
+    expect(
+      screen.queryByText("The prompt library is unavailable"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Choose library folder…" }),
+    ).toBeVisible();
+  });
+
+  it("recovers automatically when the initial snapshot races desktop startup", async () => {
+    const bridge = makeBridge();
+    bridge.librarySnapshot = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("desktop state is not ready"))
+      .mockResolvedValue(snapshot);
+
+    renderManager(bridge);
+
+    expect(
+      await screen.findByDisplayValue("Review the code carefully."),
+    ).toBeVisible();
+    expect(bridge.librarySnapshot).toHaveBeenCalledTimes(2);
+    expect(
+      screen.queryByText("The prompt library is unavailable"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("rechecks a configured root before showing a startup error", async () => {
+    const bridge = makeBridge();
+    bridge.librarySnapshot = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ...snapshot,
+        root: {
+          id: "unavailable-session",
+          displayPath: "C:\\Users\\Azan\\Prompts",
+          status: "unreadable",
+          errorCode: "unknown",
+        },
+        folders: [],
+        prompts: [],
+      })
+      .mockResolvedValue(snapshot);
+
+    renderManager(bridge);
+
+    expect(
+      await screen.findByDisplayValue("Review the code carefully."),
+    ).toBeVisible();
+    expect(bridge.librarySnapshot).toHaveBeenCalledTimes(2);
+    expect(
+      screen.queryByText("The prompt library is unavailable"),
+    ).not.toBeInTheDocument();
+  });
+
   it("reloads a clean document when its opaque content version changes", async () => {
     const { bridge, emitUpdate } = makeUpdateBridge();
     renderManager(bridge);

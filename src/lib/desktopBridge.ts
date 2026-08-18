@@ -6,7 +6,7 @@ import { assertLibraryRootCanChange } from "./dirtyEditor";
 export type OpaqueId = string;
 export type ContentVersion = string;
 export type LanguagePreference = "system" | "zh-CN" | "en";
-export type RootStatus = "ready" | "missing" | "unreadable";
+export type RootStatus = "ready" | "unconfigured" | "missing" | "unreadable";
 
 export interface FolderSummary {
   id: OpaqueId;

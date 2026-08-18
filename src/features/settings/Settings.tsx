@@ -264,7 +264,15 @@ export function Settings({ bridge }: SettingsProps) {
                   id="library-root"
                   readOnly
                   value={settings.libraryRoot.displayPath}
-                  aria-invalid={settings.libraryRoot.status !== "ready"}
+                  placeholder={
+                    settings.libraryRoot.status === "unconfigured"
+                      ? t("settings.library.unconfigured")
+                      : undefined
+                  }
+                  aria-invalid={
+                    settings.libraryRoot.status === "missing" ||
+                    settings.libraryRoot.status === "unreadable"
+                  }
                 />
                 <button type="button" onClick={() => void chooseRoot()}>
                   {t("settings.library.change")}
@@ -296,6 +304,11 @@ export function Settings({ bridge }: SettingsProps) {
                     })}
                   </p>
                 </>
+              ) : settings.libraryRoot.status === "unconfigured" ? (
+                <p className="library-summary">
+                  <FolderOpen aria-hidden="true" />
+                  {t("settings.library.unconfigured")}
+                </p>
               ) : (
                 <p className="settings-error" role="alert">
                   <TriangleAlert aria-hidden="true" />

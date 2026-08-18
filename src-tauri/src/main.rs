@@ -1,5 +1,6 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// Prompter is a desktop GUI in both development and release builds. Without
+// this attribute debug builds open an unrelated console window on Windows.
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 fn main() {
     prompter_lib::run()

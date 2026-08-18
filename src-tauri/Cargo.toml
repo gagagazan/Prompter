@@ -1,6 +1,6 @@
 [package]
 name = "prompter"
-version = "0.1.0"
+version = "0.0.1"
 description = "A local-first, cross-platform prompt library."
 authors = ["gagagazan"]
 edition = "2024"
